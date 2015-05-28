@@ -1,0 +1,100 @@
+CS 2200 Fall 2013
+Project 4
+Name: Daniel Dias
+GT Number: 902443846
+
+Problem 1B
+----------
+
+1 CPU, FIFO:
+	# of Context Switches: 99
+	Total execution time: 67.6 s
+	Total time spent in READY state: 389.9 s
+
+2 CPUs, FIFO:
+	# of Context Switches: 107
+	Total execution time: 35.8 s
+	Total time spent in READY state: 92.2 s
+
+3 CPUs:
+	# of Context Switches: 169
+	Total execution time: 33.5 s
+	Total time spent in READY state: 4.0 
+
+4 CPUs:
+	# of Context Switches: 183
+	Total execution time: 33.4 s
+	Total time spent in READY state: 0.1 s
+
+8 CPUs:
+	# of Context Switches: 184
+	Total execution time: 33.5 s
+	Total time spent in READY state: 0.0 s
+
+The relationship between number of CPUs and total execution time
+	is not linear because different numbers of CPUs make the OS
+	bounded by different things. With 1 CPU, the execution is
+	bounded by the CPU and a ton of processes are left waiting
+	to execute. With 4 or more CPUs, the execution is not bound
+	by not being able to run on a CPU but is bound by the I/O
+	and most CPUs idle while the I/O queue fills up a lot. 2
+	CPUs is in between where it is bounded by both.
+
+Problem 2B
+----------
+
+1 CPU, Round Robin Quantum of 800 ms:
+	# of Context Switches: 136
+	Total execution time: 67.6 s
+	Total time spent in READY state: 325.4 s
+
+1 CPU, Round Robin Quantum of 600 ms:
+	# of Context Switches: 161
+	Total execution time: 67.6 s
+	Total time spent in READY state: 314.5 s
+
+1 CPU, Round Robin Quantum of 400 ms:
+	# of Context Switches: 203
+	Total execution time: 67.6 s
+	Total time spent in READY state: 298.8 s
+
+1 CPU, Round Robin Quantum of 200 ms:
+	# of Context Switches: 362
+	Total execution time: 67.5 s
+	Total time spent in READY state: 285.2 s
+
+Waiting time decreases from 325.4 seconds to 285.2 seconds.
+
+Preempting a process requires extra overhead than just letting the process run until it finishes.
+	Round robin is an algorithm designed to minimize waiting time of processes by letting processes
+	get equal amounts of time on the CPU before giving it up and going to the back of the line.
+	The switching mechanism between processes requires overhead and CPU time to actually run, so
+	if the time quantum is too small, the CPU will be spending most of its time simply switching
+	processes instead of doing any actual work.
+
+Problem 3B
+----------
+
+1 CPU, FIFO:
+	# of Context Switches: 99
+	Total execution time: 67.6 s
+	Total time spent in READY state: 389.9 s
+
+1 CPU, Round Robin Quantum of 200 ms:
+	# of Context Switches: 362
+	Total execution time: 67.5 s
+	Total time spent in READY state: 285.2 s
+
+1 CPU, Static Priority:
+	# of Context Switches: 168
+	Total execution time: 68.8 s
+	Total time spent in READY state: 137.1 s
+
+The closest algorithm to Shortest Job First is the Static Priority algorithm if priority is
+	based off of the job's expected length of time it takes to execute. In this case, the
+	priority is kind of based off which job should take the least amount of time, except
+	that it also includes the I/O bursts into this value. If the priority values were for each
+	individual CPU burst and if it were based off of which job takes the least amount of time,
+	then that would be the closest to shortest job first. However, in this case, all of the
+	CPU bursts are compiled into one integer value for priority, and because of that, Static
+	priority generated the least total wait time (Total time spent in READY state).

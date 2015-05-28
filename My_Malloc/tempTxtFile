@@ -1,0 +1,29 @@
+sizeof(short) = 2
+sizeof(metadata_t*) = 8
+freelist[7]->in_use = 0
+freelist[7]->size = 2048
+freelist[7]->next = 111
+freelist[7]->prev = 666
+address of freelist[7]->in_use = 19370000
+address of freelist[7]->size = 19370002
+address of freelist[7]->next = 19370008
+address of freelist[7]->prev = 19370016
+x = 19370024
+x[0] = 10
+
+
+/*printf("sizeof(short) = %d\n", sizeof(short));
+		printf("sizeof(metadata_t*) = %d\n", sizeof(metadata_t*));
+		
+		printf("freelist[7]->in_use = %d\n", freelist[7]->in_use);
+		printf("freelist[7]->size = %d\n", freelist[7]->size);
+		printf("freelist[7]->next = %d\n", freelist[7]->next);
+		printf("freelist[7]->prev = %d\n", freelist[7]->prev);
+		
+		printf("address of freelist[7]->in_use = %d\n", (int)(&(freelist[7]->in_use)));
+		printf("address of freelist[7]->size = %d\n", (int)(&(freelist[7]->size)));
+		printf("address of freelist[7]->next = %d\n", (int)(&(freelist[7]->next)));
+		printf("address of freelist[7]->prev = %d\n", (int)(&(freelist[7]->prev)));*/
+
+
+

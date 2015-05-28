@@ -1,0 +1,15 @@
+sizeof(short) = 2
+sizeof(metadata_t*) = 8
+freelist[7]->in_use = 0
+freelist[7]->size = 2048
+freelist[7]->next = 111
+freelist[7]->prev = 666
+address of freelist[7]->in_use = 19370000
+address of freelist[7]->size = 19370002
+address of freelist[7]->next = 19370008
+address of freelist[7]->prev = 19370016
+x = 19370024
+x[0] = 10
+
+
+
