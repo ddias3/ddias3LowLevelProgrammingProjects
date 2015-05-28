@@ -1,0 +1,226 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <sys/time.h>
+#include <time.h>
+#include <math.h>
+
+const int FACTORS = 30;
+
+int numberMovies = 0;
+int numberUsers = 0;
+
+#define LEARNING_RATE (0.00125)
+#define REGULARIZATION_PARAMETER (0.005)
+
+#define BLOCKSIZE (256)//(1024)
+#define LEARNING_DATA_SIZE (99072112)
+#define ERROR_THRESHOLD (0.145)
+
+typedef struct rating
+{
+	int rating;
+	int userIndex;
+	int movieIndex;
+} rating_t;
+
+rating_t* h_learningData;
+
+double* h_userFactors;
+double* h_movieFactors;
+
+double get_walltime()
+{
+	struct timeval tp;
+	gettimeofday(&tp, NULL);
+	return (double)(tp.tv_sec + tp.tv_usec*1e-6);
+}
+
+void CreateLearningDataAndFactors()
+{
+	h_learningData = (rating_t*)malloc(sizeof(rating_t) * LEARNING_DATA_SIZE);
+	assert(NULL != h_learningData);
+	
+	int indexLearningData = 0;
+	FILE* netflixDataFile = fopen("netflix.dat", "r");
+	char buffer[60];
+	while (indexLearningData < LEARNING_DATA_SIZE && fgets(buffer, 60, netflixDataFile) != NULL)
+	{
+		assert(indexLearningData < LEARNING_DATA_SIZE);
+
+		char* startPointer = buffer;
+		char* endPointer = buffer;
+
+		h_learningData[indexLearningData].userIndex = ((int)strtol(startPointer, &endPointer, 10)) - 1;
+		startPointer = endPointer;
+		h_learningData[indexLearningData].movieIndex = ((int)strtol(startPointer, &endPointer, 10)) - 1;
+		startPointer = endPointer;
+		h_learningData[indexLearningData].rating = ((int)strtol(startPointer, &endPointer, 10));
+
+		if (h_learningData[indexLearningData].userIndex > numberUsers)
+			numberUsers = h_learningData[indexLearningData].userIndex;
+		if (h_learningData[indexLearningData].movieIndex > numberMovies)
+			numberMovies = h_learningData[indexLearningData].movieIndex;
+		
+		++indexLearningData;
+	}
+	++numberMovies;
+	++numberUsers;
+
+	printf("Allocating memory for user and movie factors\n");
+
+	h_userFactors = (double*)malloc(sizeof(double) * FACTORS * numberUsers);
+	assert(NULL != h_userFactors);
+	h_movieFactors = (double*)malloc(sizeof(double) * FACTORS * numberMovies);
+	assert(NULL != h_movieFactors);
+
+	#pragma omp parallel for
+	for (int n = 0; n < (FACTORS * numberUsers); ++n)
+		h_userFactors[n] = 1.0;
+
+	int index = 0;
+	int currentMovieIndex = 0;
+	size_t sumRating = 0;
+	size_t timesAdded = 0;
+	while (index < LEARNING_DATA_SIZE)
+	{
+		if (h_learningData[index].movieIndex != currentMovieIndex)
+		{
+			for (int f = 0; f < FACTORS; ++f)
+				h_movieFactors[currentMovieIndex * FACTORS + f] = (sumRating / ((double)timesAdded)) / ((double)FACTORS);
+
+			currentMovieIndex = h_learningData[index].movieIndex;
+			sumRating = 0;
+			timesAdded = 0;
+			continue;
+		}
+
+		sumRating += h_learningData[index].rating;
+		++timesAdded;
+		++index;
+	}
+	for (int f = 0; f < FACTORS; ++f)
+		h_movieFactors[currentMovieIndex * FACTORS + f] = (sumRating / ((double)timesAdded)) / ((double)FACTORS);
+	
+	printf("Randomizing the learning data\n");
+
+	srand(time(NULL));
+
+	for (int n = 0; n < (LEARNING_DATA_SIZE / numberMovies); ++n)
+	{
+		rating_t tempRatingBlock;
+		size_t m = ((rand() % numberMovies) * (LEARNING_DATA_SIZE / numberMovies)) + (rand() % (LEARNING_DATA_SIZE / numberMovies));
+		assert(m < LEARNING_DATA_SIZE);
+
+		tempRatingBlock.rating = h_learningData[n].rating;
+		tempRatingBlock.userIndex = h_learningData[n].userIndex;
+		tempRatingBlock.movieIndex = h_learningData[n].movieIndex;
+
+		h_learningData[n].rating = h_learningData[m].rating;
+		h_learningData[n].userIndex = h_learningData[m].userIndex;
+		h_learningData[n].movieIndex = h_learningData[m].movieIndex;
+
+		h_learningData[m].rating = tempRatingBlock.rating;
+		h_learningData[m].userIndex = tempRatingBlock.userIndex;
+		h_learningData[m].movieIndex = tempRatingBlock.movieIndex;
+	}
+}
+
+double DotProduct(const double* vectorA, const double* vectorB, const int length)
+{
+	double dotProduct = 0.0;
+
+	for (int n = 0; n < length; ++n)
+		dotProduct += vectorA[n] * vectorB[n];
+
+	return dotProduct;
+}
+
+void PrintPredictedData()
+{
+	int indexQueryData = 0;
+	FILE* netflixQueryFile = fopen("netflix_query", "r");
+	char buffer[60];
+	while (fgets(buffer, 60, netflixQueryFile) != NULL)
+	{
+		char* startPointer = buffer;
+		char* endPointer = buffer;
+
+		int userIndex = ((int)strtol(startPointer, &endPointer, 10));
+		startPointer = endPointer;
+		int movieIndex = ((int)strtol(startPointer, &endPointer, 10));
+		startPointer = endPointer;
+
+		assert(userIndex < numberUsers);
+		assert(movieIndex < numberMovies);
+
+		double predictedRating = DotProduct(&h_movieFactors[movieIndex * FACTORS], &h_userFactors[userIndex * FACTORS], FACTORS);
+
+		printf("User#:%d\tMovie#:%d\tPredicted Rating = %lf\n", userIndex, movieIndex, predictedRating);
+
+		++indexQueryData;
+	}
+}
+
+int main(int argc, char** argv)
+{
+	printf("Starting Netflix Recommender System Algorithm with Stochastic Gradient Descent\n");
+	printf("Creating Learning Data\n");
+
+	CreateLearningDataAndFactors();
+
+	double* h_sumErrorSquared = (double*)malloc(sizeof(double));
+	*h_sumErrorSquared = 0.0;
+
+	printf("Starting Algorith now\n");
+	fflush(stdout);
+
+	unsigned int iterations = 0;
+	double startTime = get_walltime();
+	do
+	{
+		for (int indexKnownData = 0; indexKnownData < LEARNING_DATA_SIZE; ++indexKnownData)
+		{	
+			if (indexKnownData == 0)
+				*h_sumErrorSquared = 0.0;
+			if (indexKnownData < LEARNING_DATA_SIZE)
+			{
+				int userIndex = h_learningData[indexKnownData].userIndex;
+				int movieIndex = h_learningData[indexKnownData].movieIndex;
+				int rating = h_learningData[indexKnownData].rating;
+
+				double errorTerm = rating - DotProduct(&h_movieFactors[movieIndex * FACTORS], &h_userFactors[userIndex * FACTORS], FACTORS);
+			
+				for (int f = 0; f < FACTORS; ++f)
+				{
+					h_movieFactors[movieIndex * FACTORS + f] += LEARNING_RATE * (errorTerm * h_userFactors[userIndex * FACTORS + f]
+						- REGULARIZATION_PARAMETER * h_movieFactors[movieIndex * FACTORS + f]);
+				}
+
+				for (int f = 0; f < FACTORS; ++f)
+				{
+					h_userFactors[userIndex * FACTORS + f] += LEARNING_RATE * (errorTerm * h_movieFactors[movieIndex * FACTORS + f]
+						- REGULARIZATION_PARAMETER * h_userFactors[userIndex * FACTORS + f]);
+				}
+				
+				*h_sumErrorSquared += errorTerm * errorTerm;
+			}
+		}
+		printf("\th_sumErrorSquared = %lf, (1/N(h_sumErrorSquared))^(1/2) = %lf\n", *h_sumErrorSquared, sqrt((1.0/LEARNING_DATA_SIZE**h_sumErrorSquared)));
+		++iterations;
+	} while (*h_sumErrorSquared > LEARNING_DATA_SIZE * (ERROR_THRESHOLD * ERROR_THRESHOLD));
+	double endTime = get_walltime();
+
+	printf("Performed %u iterations\n", iterations);
+
+	printf("Total time = %lf\n", endTime - startTime);
+
+	PrintPredictedData();
+
+	free(h_sumErrorSquared);
+	free(h_userFactors);
+	free(h_movieFactors);
+	free(h_learningData);
+
+	return 0;
+}
